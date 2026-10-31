@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>نظام استخراج وبحث كشوفات الحسابات الحكومية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--tx:#0f172a;--mu:#64748b;--bd:#e2e8f0;--pr:#2563eb;--gr:#16a34a;--rd:#dc2626;--nv:#0f172a}
+*{box-sizing:border-box}
+body{margin:0;font-family:Tajawal,sans-serif;background:var(--bg);color:var(--tx)}
+header{background:linear-gradient(135deg,#0b1220,#1e2a5a);color:#fff;padding:18px 16px}
+header h1{margin:0 0 6px;font-size:21px;line-height:1.5}
+header p{margin:0 0 12px;color:#cbd5e1;font-size:14px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font-family:inherit;font-size:14px;font-weight:700;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;color:#fff;background:#334155}
+button.pr{background:var(--pr)}button.gr{background:var(--gr)}button.rd{background:var(--rd)}
+main{max-width:1100px;margin:0 auto;padding:14px}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;border:1px solid var(--bd)}
+.drop{border:2px dashed #60a5fa;border-radius:16px;padding:26px 12px;text-align:center;cursor:pointer;background:#f8fbff}
+.drop.over{background:#dbeafe}
+.drop b{display:block;font-size:17px;margin:8px 0}
+.drop small{color:var(--mu)}
+.opts{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:14px}
+.opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+#prog{display:none;margin-top:12px}
+#bar{height:8px;background:var(--bd);border-radius:6px;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--pr);transition:width .2s}
+#msg{font-size:13px;color:var(--mu);margin-top:6px}
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.stat{flex:1;min-width:120px;background:#f8fafc;border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:18px}.stat span{font-size:12px;color:var(--mu)}
+#q{width:100%;padding:11px;border:1px solid var(--bd);border-radius:10px;font-family:inherit;font-size:15px;margin-bottom:10px}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:760px;font-size:14px}
+th{background:var(--nv);color:#fff;padding:9px;position:sticky;top:0}
+td{border-bottom:1px solid var(--bd);padding:3px}
+td input,td select{width:100%;border:0;background:transparent;font-family:inherit;font-size:14px;padding:6px;text-align:center}
+td input:focus,td select:focus{outline:2px solid #93c5fd;background:#eff6ff}
+td.x{width:40px}
+td.x button{padding:4px 9px;background:#fee2e2;color:var(--rd)}
+.empty{text-align:center;color:var(--mu);padding:26px}
+</style>
+</head>
+<body>
+<header>
+  <h1>نظام استخراج وبحث كشوفات الحسابات الحكومية (PDF إلى Excel)</h1>
+  <p>فرع توزيع كهرباء كربلاء / قطاع كهرباء الحر / الحسابات الحكومية</p>
+  <div class="btns">
+    <button class="pr" onclick="addRow()">＋ إضافة قيد يدوياً</button>
+    <button onclick="demo()">بيانات تجريبية</button>
+    <button class="gr" onclick="exportXlsx()">تصدير إلى Excel</button>
+    <button onclick="window.print()">طباعة</button>
+    <button class="rd" onclick="clearAll()">مسح الجدول</button>
+  </div>
+</header>
+<main>
+  <section class="card">
+    <h3 style="margin-top:0">رفع ملف PDF أو صورة لاستخراج الجدول تلقائياً</h3>
+    <div class="drop" id="drop">
+      <div style="font-size:38px">☁️</div>
+      <b>اضغط هنا لاختيار ملف PDF أو صورة، أو اسحب الملف وأفلته هنا</b>
+      <small>يدعم الملفات النصية والممسوحة ضوئياً (Scanned) — يمكن اختيار عدة ملفات</small>
+    </div>
+    <input type="file" id="file" accept="application/pdf,image/*" multiple hidden>
+    <div class="opts">
+      <label><input type="radio" name="mode" value="ocr" checked> استخراج دقيق (OCR / قراءة بالبصر)</label>
+      <label><input type="radio" name="mode" value="text"> استخراج نصي سريع</label>
+      <label><input type="checkbox" id="append" checked> إضافة إلى الجدول الحالي دون مسح السابق</label>
+    </div>
+    <div id="prog"><div id="bar"><i></i></div><div id="msg"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="stats">
+      <div class="stat"><b id="sN">0</b><span>عدد الحسابات</span></div>
+      <div class="stat"><b id="sU">0</b><span>مجموع الوحدات</span></div>
+      <div class="stat"><b id="sA">0</b><span>مجموع المبالغ</span></div>
+    </div>
+    <input id="q" placeholder="🔍 ابحث بالاسم أو رقم الحساب أو النوع...">
+    <div class="wrap">
+      <table>
+        <thead><tr><th>ت</th><th>رقم الحساب</th><th>الاسم</th><th>النوع</th><th>الوحدات</th><th>المبلغ</th><th></th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const TYPES=['منزلي','تجاري','صناعي','زراعي','حكومي','انارة','إنارة','مستشفى','مدرسة','دائرة'];
+let rows=[];
+try{rows=JSON.parse(localStorage.getItem('gov_rows')||'[]')}catch(e){}
+const $=id=>document.getElementById(id);
+const save=()=>{try{localStorage.setItem('gov_rows',JSON.stringify(rows))}catch(e){}};
+const fmt=n=>(+n||0).toLocaleString('en-US');
+
+/* ---------- عرض الجدول ---------- */
+function render(){
+  const q=$('q').value.trim().toLowerCase();
+  const tb=$('tb');tb.innerHTML='';
+  let shown=0;
+  rows.forEach((r,i)=>{
+    if(q&&!(r.acc+' '+r.name+' '+r.type).toLowerCase().includes(q))return;
+    shown++;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td>
+      <td><input value="${esc(r.acc)}" data-k="acc" data-i="${i}" inputmode="numeric"></td>
+      <td><input value="${esc(r.name)}" data-k="name" data-i="${i}" style="text-align:right"></td>
+      <td><input value="${esc(r.type)}" data-k="type" data-i="${i}" list="tl"></td>
+      <td><input value="${r.units}" data-k="units" data-i="${i}" inputmode="decimal"></td>
+      <td><input value="${r.amount}" data-k="amount" data-i="${i}" inputmode="decimal"></td>
+      <td class="x"><button onclick="delRow(${i})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  if(!shown)tb.innerHTML='<tr><td colspan="7" class="empty">لا توجد بيانات — ارفع ملفاً أو أضف قيداً</td></tr>';
+  $('sN').textContent=rows.length;
+  $('sU').textContent=fmt(rows.reduce((a,r)=>a+(+r.units||0),0));
+  $('sA').textContent=fmt(rows.reduce((a,r)=>a+(+r.amount||0),0));
+}
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+document.body.insertAdjacentHTML('beforeend','<datalist id="tl">'+[...new Set(TYPES)].map(t=>`<option value="${t}">`).join('')+'</datalist>');
+$('tb').addEventListener('change',e=>{
+  const t=e.target,i=t.dataset.i,k=t.dataset.k;if(i==null)return;
+  rows[i][k]=(k==='units'||k==='amount')?(parseNum(t.value)):t.value.trim();
+  save();render();
+});
+$('q').addEventListener('input',render);
+function addRow(){rows.push({acc:'',name:'',type:'',units:0,amount:0});save();render();}
+function delRow(i){rows.splice(i,1);save();render();}
+function clearAll(){if(confirm('هل تريد مسح كل البيانات؟')){rows=[];save();render();}}
+function demo(){
+  rows.push(
+   {acc:'102030405',name:'دائرة صحة كربلاء',type:'حكومي',units:15400,amount:3850000},
+   {acc:'102030406',name:'مديرية تربية كربلاء',type:'حكومي',units:8200,amount:2050000},
+   {acc:'102030407',name:'مستشفى الحر العام',type:'حكومي',units:23100,amount:5775000});
+  save();render();
+}
+
+/* ---------- أدوات التحليل ---------- */
+const AR='٠١٢٣٤٥٦٧٨٩',PR='۰۱۲۳۴۵۶۷۸۹';
+function normDigits(s){
+  return s.replace(/[٠-٩]/g,d=>AR.indexOf(d)).replace(/[۰-۹]/g,d=>PR.indexOf(d))
+          .replace(/٫/g,'.').replace(/٬/g,',').replace(/[\u200e\u200f\u202a-\u202e]/g,'');
+}
+function parseNum(s){
+  s=normDigits(String(s)).replace(/[^\d.,-]/g,'');
+  if(/,\d{1,2}$/.test(s)&&!s.includes('.'))s=s.replace(',','.');
+  return parseFloat(s.replace(/,/g,''))||0;
+}
+function parseLine(line){
+  line=normDigits(line).replace(/[|_¦]/g,' ').replace(/\s+/g,' ').trim();
+  if(line.length<6)return null;
+  if(/(رقم\s*الحساب|اسم\s*المشترك)/.test(line)||(/الاسم/.test(line)&&/المبلغ/.test(line)))return null;
+  const tk=line.split(' ');
+  // رقم الحساب: أطول رمز رقمي (6-14 خانة)
+  let ai=-1,best=0;
+  tk.forEach((t,i)=>{const d=t.replace(/[^\d]/g,'');if(/^[\d\-\/]+$/.test(t)&&d.length>=6&&d.length<=14&&d.length>best){best=d.length;ai=i}});
+  if(ai<0)return null;
+  const acc=tk[ai].replace(/[^\d]/g,'');
+  const rest=tk.filter((_,i)=>i!==ai);
+  // الأرقام المتبقية
+  const nums=rest.map((t,i)=>({t,i})).filter(o=>/^-?[\d,.]+$/.test(o.t)&&/\d/.test(o.t));
+  let amount=0,units=0;const used=new Set();
+  if(nums.length){const a=nums[nums.length-1];amount=parseNum(a.t);used.add(a.i);}
+  if(nums.length>1){
+    const u=nums[nums.length-2];
+    if(parseNum(u.t)!==0||nums.length>2){units=parseNum(u.t);used.add(u.i);}
+  }
+  // الرقم التسلسلي (رقم قصير) يُتجاهل
+  nums.forEach(o=>{if(/^\d{1,3}$/.test(o.t)&&!used.has(o.i)&&nums.length>2)used.add(o.i)});
+  let type='';
+  for(const t of TYPES){if(line.includes(t)){type=t==='إنارة'?'انارة':t;break}}
+  const name=rest.filter((t,i)=>!used.has(i)&&!/^[\d,.\-]+$/.test(t)&&t!==type)
+                 .join(' ').replace(/[^\u0600-\u06FFa-zA-Z0-9\s().\-]/g,'').replace(/\s+/g,' ').trim();
+  if(!name&&!amount)return null;
+  return {acc,name,type,units,amount};
+}
+function parseText(lines){return lines.map(parseLine).filter(Boolean);}
+
+/* ---------- قراءة PDF ---------- */
+async function pdfTextLines(page){
+  const tc=await page.getTextContent();
+  const it=tc.items.filter(i=>i.str.trim()).map(i=>({s:i.str,x:i.transform[4],y:i.transform[5]}));
+  it.sort((a,b)=>b.y-a.y);
+  const out=[];
+  for(const o of it){
+    const r=out.find(r=>Math.abs(r.y-o.y)<4);
+    r?r.a.push(o):out.push({y:o.y,a:[o]});
+  }
+  return out.map(r=>r.a.sort((a,b)=>b.x-a.x).map(i=>i.s).join(' '));
+}
+async function pageCanvas(page){
+  const vp0=page.getViewport({scale:1});
+  const scale=Math.min(3,Math.max(2,2400/vp0.width));
+  const vp=page.getViewport({scale});
+  const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;
+  await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+  return c;
+}
+function enhance(c){
+  const x=c.getContext('2d'),d=x.getImageData(0,0,c.width,c.height),p=d.data;
+  let lo=255,hi=0;const g=new Uint8Array(p.length/4);
+  for(let i=0,j=0;i<p.length;i+=4,j++){const v=.299*p[i]+.587*p[i+1]+.114*p[i+2];g[j]=v;if(v<lo)lo=v;if(v>hi)hi=v;}
+  const k=255/Math.max(1,hi-lo);
+  for(let i=0,j=0;i<p.length;i+=4,j++){let v=(g[j]-lo)*k;v=v>170?255:v<110?0:v;p[i]=p[i+1]=p[i+2]=v;}
+  x.putImageData(d,0,0);return c;
+}
+function imgCanvas(file){
+  return new Promise((res,rej)=>{
+    const im=new Image();
+    im.onload=()=>{
+      const s=im.width<1800?Math.min(3,1800/im.width):1;
+      const c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(im.src);res(c);
+    };
+    im.onerror=()=>rej(new Error('تعذر قراءة الصورة'));
+    im.src=URL.createObjectURL(file);
+  });
+}
+
+/* ---------- OCR ---------- */
+let worker=null;
+async function getWorker(){
+  if(worker)return worker;
+  worker=await Tesseract.createWorker('ara+eng',1,{
+    logger:m=>{if(m.status==='recognizing text')setProg(null,'جارِ قراءة النص... '+Math.round(m.progress*100)+'%')}
+  });
+  await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
+  return worker;
+}
+async function ocr(canvas){
+  const w=await getWorker();
+  const {data}=await w.recognize(enhance(canvas));
+  return (data.lines&&data.lines.length?data.lines.map(l=>l.text):data.text.split('\n'));
+}
+
+/* ---------- التنفيذ الرئيسي ---------- */
+function setProg(p,m){
+  $('prog').style.display='block';
+  if(p!=null)$('bar').firstChild.style.width=p+'%';
+  if(m)$('msg').textContent=m;
+}
+async function processFile(file,mode){
+  const found=[];
+  if(file.type.startsWith('image/')||/\.(png|jpe?g|webp|bmp)$/i.test(file.name)){
+    setProg(null,'قراءة الصورة: '+file.name);
+    found.push(...parseText(await ocr(await imgCanvas(file))));
+    return found;
+  }
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  for(let n=1;n<=pdf.numPages;n++){
+    setProg(null,`${file.name} — صفحة ${n} من ${pdf.numPages}`);
+    const page=await pdf.getPage(n);
+    let got=[];
+    if(mode==='text'||mode==='both'){
+      got=parseText(await pdfTextLines(page));
+    }
+    // إذا لم يُستخرج نص كافٍ (ملف ممسوح) أو كان الوضع دقيقاً → OCR
+    if(mode==='ocr'||got.length<2){
+      const ocrRows=parseText(await ocr(await pageCanvas(page)));
+      if(ocrRows.length>got.length)got=ocrRows;
+    }
+    found.push(...got);
+  }
+  return found;
+}
+async function handleFiles(files){
+  if(!files.length)return;
+  const mode=document.querySelector('input[name=mode]:checked').value;
+  if(!$('append').checked)rows=[];
+  let total=0;
+  try{
+    for(let i=0;i<files.length;i++){
+      setProg(Math.round(i/files.length*100),'');
+      const found=await processFile(files[i],mode);
+      const seen=new Set(rows.map(r=>r.acc+'|'+r.amount+'|'+r.units));
+      found.forEach(r=>{const key=r.acc+'|'+r.amount+'|'+r.units;if(!seen.has(key)){seen.add(key);rows.push(r);total++}});
+    }
+    setProg(100,`تم استخراج ${total} قيد. راجع الجدول وصحّح أي خطأ بالضغط على الخانة.`);
+  }catch(e){
+    console.error(e);setProg(null,'حدث خطأ: '+e.message);
+  }
+  save();render();
+}
+const drop=$('drop'),fi=$('file');
+drop.onclick=()=>fi.click();
+fi.onchange=()=>{handleFiles([...fi.files]);fi.value=''};
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>handleFiles([...e.dataTransfer.files]));
+
+/* ---------- التصدير ---------- */
+function exportXlsx(){
+  if(!rows.length)return alert('لا توجد بيانات للتصدير');
+  const data=rows.map((r,i)=>({'ت':i+1,'رقم الحساب':r.acc,'الاسم':r.name,'النوع':r.type,'الوحدات':+r.units||0,'المبلغ':+r.amount||0}));
+  data.push({'ت':'','رقم الحساب':'','الاسم':'المجموع','النوع':'','الوحدات':rows.reduce((a,r)=>a+(+r.units||0),0),'المبلغ':rows.reduce((a,r)=>a+(+r.amount||0),0)});
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:5},{wch:16},{wch:34},{wch:12},{wch:12},{wch:16}];
+  const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};
+  XLSX.utils.book_append_sheet(wb,ws,'الحسابات الحكومية');
+  XLSX.writeFile(wb,'الحسابات_الحكومية.xlsx');
+}
+render();
+</script>
+</body>
+</html>
